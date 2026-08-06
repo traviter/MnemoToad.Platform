@@ -346,8 +346,8 @@
       <div class="decisions">
         <div class="decision-card">
           <div class="n">1</div>
-          <h3>Attributes are graph-adjacent, not jsonb</h3>
-          <p>Entity-valued attributes (a country's capital) are <code>KnowledgeRelation</code> rows. Scalar literals are rows too — <code>AttributeType</code>/<code>KnowledgeNodeAttribute</code>, not a jsonb bag — since this Postgres schema is a stepping stone to a future graph database, and traversal already means joins.</p>
+          <h3>Attributes are graph-adjacent, not a jsonb bag</h3>
+          <p>Entity-valued attributes (a country's capital) are <code>KnowledgeRelation</code> rows. Scalar literals are rows too — one <code>KnowledgeNodeAttribute</code> row per node+key, composite-keyed, no separate lookup table — since this Postgres schema is a stepping stone to a future graph database. Each row's <code>Value</code> is itself <code>jsonb</code>, so Postgres stays type-aware without a stored datatype column.</p>
         </div>
         <div class="decision-card">
           <div class="n">2</div>
@@ -371,8 +371,8 @@
       <div class="eyebrow"><span class="tag knowledge">Knowledge</span><span class="num">§1</span></div>
       <h2>Attributes</h2>
       <div class="service-block knowledge">
-        <p>A normalized attribute table, not jsonb. <code>AttributeType</code> is an open-vocabulary lookup (same shape as <code>NodeType</code>/<code>RelationshipType</code>) — population, ISO code, etc. <code>KnowledgeNodeAttribute</code> links a node to an <code>AttributeType</code> with a plain-text <code>Value</code>, one row per attribute per node. Entity-valued attributes (a country's capital, its currency) stay <code>KnowledgeRelation</code> rows to other nodes instead.</p>
-        <p class="small">France: <code>canonicalName: "France"</code>, plus <code>KnowledgeNodeAttribute</code> rows <code>isoCode → "FR"</code> and <code>population → "68000000"</code>, plus a <code>hasCapital</code> relation to a "Paris" node. Text-only cards work automatically — a node with no attributes or media is still a complete card. Reconsidered away from an earlier <code>properties jsonb</code> column: filtering/searching nodes by a specific attribute's value is native SQL with a real column, and this schema is a stepping stone toward an eventual graph-database migration anyway, so the "jsonb avoids a join" argument doesn't carry much weight — graph traversal already means joins.</p>
+        <p>A normalized attribute table, not a single jsonb blob column. <code>KnowledgeNodeAttribute</code> links a node directly to a scalar value by key — <code>(knowledge_node_id, key)</code> composite primary key, no separate <code>AttributeType</code> lookup table (an earlier version had one; it turned out to just duplicate what the key string already says, once <code>Value</code> itself became genuinely typed). <code>Value</code> is native Postgres <code>jsonb</code>, so Postgres stays type-aware (string vs. number vs. boolean) without a stored datatype column. Entity-valued attributes (a country's capital, its currency) stay <code>KnowledgeRelation</code> rows to other nodes instead. The API embeds attributes directly in the <code>KnowledgeNode</code> JSON (<code>POST</code>/<code>PUT</code>/<code>GET /nodes</code>) rather than through a separate resource — full-replace on update, scalars only for now (no arrays or nested objects).</p>
+        <p class="small">France: <code>canonicalName: "France"</code>, plus <code>attributes: { isoCode: "FR", population: 68000000 }</code>, plus a <code>hasCapital</code> relation to a "Paris" node. Text-only cards work automatically — a node with no attributes or media is still a complete card. Reconsidered twice: first away from an earlier <code>properties jsonb</code> column on the node (filtering/searching by a specific attribute's value wants native SQL, and this schema is a stepping stone toward an eventual graph-database migration anyway, so "jsonb avoids a join" doesn't carry much weight — graph traversal already means joins); then away from a name-lookup <code>AttributeType</code> table once <code>Value</code> itself became <code>jsonb</code>-typed and a stored datatype column had nothing left to do.</p>
       </div>
     </section>
 
@@ -401,20 +401,20 @@
                     or its InverseName (reversed)</span>
 <span class="kw">terminal</span> := column | attribute | media
 <span class="kw">column</span>   := <span class="kw">'_'</span> name    <span class="cm">-- a KnowledgeNode column: id | canonicalName | description</span>
-<span class="kw">attribute</span> := <span class="kw">'.'</span> name    <span class="cm">-- KnowledgeNodeAttribute.Value where AttributeType.Name = name</span>
+<span class="kw">attribute</span> := <span class="kw">'.'</span> name    <span class="cm">-- KnowledgeNodeAttribute.Value where Key = name</span>
 <span class="kw">media</span>    := <span class="kw">'#'</span> name    <span class="cm">-- media of this MediaRole.Name -&gt; {url, altText, source}</span></div>
       <table class="data" style="margin-top:18px;">
         <thead><tr><th>Path</th><th>Resolves to</th></tr></thead>
         <tbody>
           <tr><td class="path mono">_canonicalName</td><td>The node's own name</td></tr>
           <tr><td class="path mono">#flag</td><td>The node's own flag media</td></tr>
-          <tr><td class="path mono">.population</td><td>The node's <code>KnowledgeNodeAttribute</code> row where <code>AttributeType.Name = "population"</code></td></tr>
+          <tr><td class="path mono">.population</td><td>The node's <code>KnowledgeNodeAttribute</code> row where <code>Key = "population"</code></td></tr>
           <tr><td class="path mono">&gt;capital_canonicalName</td><td>Follow <code>capital</code> to another node, then its name</td></tr>
           <tr><td class="path mono">&gt;partOf&gt;partOf_canonicalName</td><td>Two hops (city → region → country), then name</td></tr>
           <tr><td class="path mono">literal</td><td>Learning-only sentinel: skip resolution, use the card face's cached value as-is</td></tr>
         </tbody>
       </table>
-      <p class="caption">Surface syntax is unchanged from the earlier jsonb-backed design — <code>.name</code> still means "this node's scalar attribute called <code>name</code>" — only the resolution mechanism moved from a jsonb key lookup to a join against <code>attribute_type</code>/<code>knowledge_node_attribute</code>. Not yet implemented.</p>
+      <p class="caption">Surface syntax is unchanged since the earlier jsonb-column design — <code>.name</code> still means "this node's scalar attribute called <code>name</code>" — only the resolution mechanism has moved twice: from a jsonb key lookup on a single blob column, to a join against <code>attribute_type</code>/<code>knowledge_node_attribute</code>, and now to a direct keyed lookup on <code>(knowledge_node_id, key)</code> — no join at all, now that <code>attribute_type</code> is gone. Not yet implemented.</p>
       <p class="caption">Resolved in bulk via one <code class="mono">POST /nodes/resolve</code> call per due-card batch — the whole reason the future App Server's due-cards read path stays at two HTTP calls, however many cards are due.</p>
     </section>
 
@@ -429,7 +429,6 @@ erDiagram
     RELATIONSHIP_TYPE ||--o{ KNOWLEDGE_RELATION : "typed as"
     KNOWLEDGE_NODE ||--o{ KNOWLEDGE_RELATION : "source"
     KNOWLEDGE_NODE ||--o{ KNOWLEDGE_RELATION : "target"
-    ATTRIBUTE_TYPE ||--o{ KNOWLEDGE_NODE_ATTRIBUTE : "typed as"
     KNOWLEDGE_NODE ||--o{ KNOWLEDGE_NODE_ATTRIBUTE : "has"
     MEDIA_ROLE ||--o{ KNOWLEDGE_NODE_MEDIA : "typed as"
     MEDIA_ASSET ||--o{ KNOWLEDGE_NODE_MEDIA : "used in"
@@ -461,16 +460,10 @@ erDiagram
         uuid relationship_type_id FK
         uuid target_node_id FK
     }
-    ATTRIBUTE_TYPE {
-        uuid id PK
-        string name
-        string description
-    }
     KNOWLEDGE_NODE_ATTRIBUTE {
-        uuid id PK
-        uuid knowledge_node_id FK
-        uuid attribute_type_id FK
-        string value
+        uuid knowledge_node_id PK, FK
+        string key PK
+        jsonb value
     }
     MEDIA_ROLE {
         uuid id PK
