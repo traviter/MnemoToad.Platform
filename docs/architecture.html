@@ -352,7 +352,7 @@
         <div class="decision-card">
           <div class="n">2</div>
           <h3>Media is always a URL</h3>
-          <p>No blob storage in Knowledge, ever. Third-party links today, a future self-hosted Azure component later — same table, same shape.</p>
+          <p>No blob storage in Knowledge, ever — just a URL, catalogued and linked to a node by key, one node per asset. Everything else about that link (accessibility text, arbitrary metadata) lives on the link itself, not the URL.</p>
         </div>
         <div class="decision-card">
           <div class="n">3</div>
@@ -380,14 +380,13 @@
       <div class="eyebrow"><span class="tag knowledge">Knowledge</span><span class="num">§2</span></div>
       <h2>Media</h2>
       <div class="service-block knowledge">
-        <p>Every <code>MediaAsset</code> is a URL — a third-party link (flags via flagcdn.com for v1) or a future self-hosted Azure component's URL — distinguished only by a <code>source</code> flag. Knowledge is a catalog, not a media host: no blob storage, no dimensions, no mime type. Consumers ask for media by opaque ID; the URL underneath can change without breaking anyone.</p>
+        <p>Every <code>MediaAsset</code> is a URL — a third-party link (flags via flagcdn.com for v1) today, a future self-hosted Azure component's URL later, no distinguishing flag needed until that day comes. Knowledge is a catalog, not a media host: no blob storage, no dimensions, no mime type — and it isn't the source of truth on whether an asset ID is even valid, either. <code>KnowledgeNodeMedia</code> links a node to an asset by a plain string key, composite-keyed the same way <code>KnowledgeNodeAttribute</code> is (no separate role lookup table), but with no foreign key back to <code>media_asset</code> — that existence check is deferred to a future dedicated media server, not owned here. Each <code>MediaAsset</code> backs <strong>at most one</strong> <code>KnowledgeNodeMedia</code> row, enforced by a plain unique constraint — sharing one asset across nodes isn't supported; two nodes wanting the same picture each get their own <code>MediaAsset</code> row. <code>alt_text</code> is required on every link (accessibility, not optional), and an open <code>metadata</code> column holds the entire submitted stanza verbatim — including <code>id</code> and <code>alt_text</code> again, redundantly — so arbitrary extra fields round-trip without the API needing to know about them.</p>
       </div>
       <table class="data">
         <thead><tr><th>Table</th><th>Purpose</th><th>Key columns</th></tr></thead>
         <tbody>
-          <tr><td class="mono">media_role</td><td>Open vocabulary — flag, photo, pronunciation…</td><td class="mono">name, description</td></tr>
-          <tr><td class="mono">media_asset</td><td>One URL, always</td><td class="mono">url, source, alt_text</td></tr>
-          <tr><td class="mono">knowledge_node_media</td><td>Links a node to media, tagged with a role</td><td class="mono">knowledge_node_id, media_asset_id, media_role_id</td></tr>
+          <tr><td class="mono">media_asset</td><td>One URL, always</td><td class="mono">url</td></tr>
+          <tr><td class="mono">knowledge_node_media</td><td>Links a node to one media asset by key</td><td class="mono">knowledge_node_id, key, media_asset_id (unique), alt_text, metadata</td></tr>
         </tbody>
       </table>
     </section>
@@ -402,7 +401,7 @@
 <span class="kw">terminal</span> := column | attribute | media
 <span class="kw">column</span>   := <span class="kw">'_'</span> name    <span class="cm">-- a KnowledgeNode column: id | canonicalName | description</span>
 <span class="kw">attribute</span> := <span class="kw">'.'</span> name    <span class="cm">-- KnowledgeNodeAttribute.Value where Key = name</span>
-<span class="kw">media</span>    := <span class="kw">'#'</span> name    <span class="cm">-- media of this MediaRole.Name -&gt; {url, altText, source}</span></div>
+<span class="kw">media</span>    := <span class="kw">'#'</span> name    <span class="cm">-- KnowledgeNodeMedia.Metadata where Key = name (no url — asset id only)</span></div>
       <table class="data" style="margin-top:18px;">
         <thead><tr><th>Path</th><th>Resolves to</th></tr></thead>
         <tbody>
@@ -430,8 +429,7 @@ erDiagram
     KNOWLEDGE_NODE ||--o{ KNOWLEDGE_RELATION : "source"
     KNOWLEDGE_NODE ||--o{ KNOWLEDGE_RELATION : "target"
     KNOWLEDGE_NODE ||--o{ KNOWLEDGE_NODE_ATTRIBUTE : "has"
-    MEDIA_ROLE ||--o{ KNOWLEDGE_NODE_MEDIA : "typed as"
-    MEDIA_ASSET ||--o{ KNOWLEDGE_NODE_MEDIA : "used in"
+    MEDIA_ASSET |o..o| KNOWLEDGE_NODE_MEDIA : "referenced by, no FK"
     KNOWLEDGE_NODE ||--o{ KNOWLEDGE_NODE_MEDIA : "has"
     LEITNER_DECK ||--o{ LEITNER_CARD : contains
     LEITNER_CARD ||--o{ LEITNER_CARD_FACE : has
@@ -465,22 +463,16 @@ erDiagram
         string key PK
         jsonb value
     }
-    MEDIA_ROLE {
-        uuid id PK
-        string name
-        string description
-    }
     MEDIA_ASSET {
         uuid id PK
         string url
-        string source
-        string alt_text
     }
     KNOWLEDGE_NODE_MEDIA {
-        uuid id PK
-        uuid knowledge_node_id FK
-        uuid media_asset_id FK
-        uuid media_role_id FK
+        uuid knowledge_node_id PK, FK
+        string key PK
+        uuid media_asset_id UK "no FK"
+        string alt_text
+        jsonb metadata
     }
     LEITNER_DECK {
         uuid id PK
