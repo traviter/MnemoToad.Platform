@@ -207,6 +207,16 @@
   .decision-card h3 { font-size: 0.95rem; margin-bottom: 6px; }
   .decision-card p { margin: 0; font-size: 0.87rem; color: var(--ink-muted); }
 
+  a.decision-card.api-card {
+    text-decoration: none;
+    display: block;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  a.decision-card.api-card:hover { transform: translateY(-2px); }
+  .decision-card.api-card .tag { margin-bottom: 10px; }
+  .decision-card.api-card.disabled { opacity: 0.55; }
+  .decision-card.api-card.disabled .tag { filter: grayscale(0.4); }
+
   .panel {
     background: var(--surface);
     border: 1px solid var(--line);
@@ -316,6 +326,7 @@
     <div class="brand">MnemoToad</div>
     <div class="brand-sub">Architecture &amp; Schema Reference</div>
     <a class="nav-link" href="#overview"><span class="nav-num">00</span> Overview</a>
+    <a class="nav-link" href="#apidocs"><span class="nav-num">—</span> API docs</a>
     <a class="nav-link" href="#attributes"><span class="nav-dot" style="background:var(--knowledge)"></span><span class="nav-num">01</span> Attributes</a>
     <a class="nav-link" href="#media"><span class="nav-dot" style="background:var(--knowledge)"></span><span class="nav-num">02</span> Media</a>
     <a class="nav-link" href="#pathdsl"><span class="nav-dot" style="background:var(--knowledge)"></span><span class="nav-num">03</span> Path DSL</a>
@@ -363,6 +374,29 @@
           <div class="n">4</div>
           <h3>Cards are N-faced &amp; live</h3>
           <p>Faces store a path expression, not a value — resolved fresh against Knowledge, with a cached copy to detect drift.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="apidocs">
+      <div class="eyebrow"><span class="num">—</span> API documentation</div>
+      <h2>Swagger / OpenAPI references</h2>
+      <p class="lede">Each service hosts its own interactive API docs (endpoint summaries, parameter descriptions, sample payloads) — this is just the index. Links go live as each service ships its docs.</p>
+      <div class="decisions">
+        <a class="decision-card api-card knowledge" href="https://mnemotoad-fybvhxgdapesd2d3.westus3-01.azurewebsites.net/swagger/index.html" target="_blank" rel="noopener">
+          <span class="tag knowledge">Knowledge</span>
+          <h3>Knowledge API</h3>
+          <p>Live Swagger UI on the deployed Azure app.</p>
+        </a>
+        <div class="decision-card api-card learning disabled">
+          <span class="tag learning">Learning</span>
+          <h3>Learning API</h3>
+          <p>Not published yet.</p>
+        </div>
+        <div class="decision-card api-card appserver disabled">
+          <span class="tag appserver">App Server</span>
+          <h3>App Server</h3>
+          <p>Not built yet.</p>
         </div>
       </div>
     </section>
