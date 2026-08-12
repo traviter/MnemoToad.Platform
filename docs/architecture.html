@@ -435,7 +435,7 @@
 <span class="kw">terminal</span> := column | attribute | media
 <span class="kw">column</span>   := <span class="kw">'_'</span> name    <span class="cm">-- a KnowledgeNode column: id | canonicalName | description</span>
 <span class="kw">attribute</span> := <span class="kw">'.'</span> name    <span class="cm">-- KnowledgeNodeAttribute.Value where Key = name</span>
-<span class="kw">media</span>    := <span class="kw">'#'</span> name    <span class="cm">-- KnowledgeNodeMedia.Metadata where Key = name (no url — asset id only)</span></div>
+<span class="kw">media</span>    := <span class="kw">'#'</span> name    <span class="cm">-- KnowledgeNodeMedia where Key = name, resolves to { id, alt_text, metadata? } (no url)</span></div>
       <table class="data" style="margin-top:18px;">
         <thead><tr><th>Path</th><th>Resolves to</th></tr></thead>
         <tbody>
@@ -447,8 +447,9 @@
           <tr><td class="path mono">literal</td><td>Learning-only sentinel: skip resolution, use the card face's cached value as-is</td></tr>
         </tbody>
       </table>
-      <p class="caption">Surface syntax is unchanged since the earlier jsonb-column design — <code>.name</code> still means "this node's scalar attribute called <code>name</code>" — only the resolution mechanism has moved twice: from a jsonb key lookup on a single blob column, to a join against <code>attribute_type</code>/<code>knowledge_node_attribute</code>, and now to a direct keyed lookup on <code>(knowledge_node_id, key)</code> — no join at all, now that <code>attribute_type</code> is gone. Not yet implemented.</p>
-      <p class="caption">Resolved in bulk via one <code class="mono">POST /nodes/resolve</code> call per due-card batch — the whole reason the future App Server's due-cards read path stays at two HTTP calls, however many cards are due.</p>
+      <p class="caption">Surface syntax is unchanged since the earlier jsonb-column design — <code>.name</code> still means "this node's scalar attribute called <code>name</code>" — only the resolution mechanism has moved twice: from a jsonb key lookup on a single blob column, to a join against <code>attribute_type</code>/<code>knowledge_node_attribute</code>, and now to a direct keyed lookup on <code>(knowledge_node_id, key)</code> — no join at all, now that <code>attribute_type</code> is gone.</p>
+      <p class="caption">Implemented as <code class="mono">POST /nodes/resolve</code>, resolved in bulk — one call accepts many <code>(nodeId, paths[])</code> entries, the whole reason the future App Server's due-cards read path stays at two HTTP calls, however many cards are due. A path that can't be resolved (missing node, hop, or attribute/media key) fails just that one path, not the batch.</p>
+      <p class="caption">Every <code>name</code> in a hop or terminal — a <code>RelationshipType.Name</code>/<code>InverseName</code>, or an attribute/media <code>key</code> — is DB-constrained to letters only (no digits, no punctuation): <code>_</code>/<code>.</code>/<code>#</code>/<code>&gt;</code> are the grammar's own delimiters, so a name containing one is ambiguous to parse. Discovered, not originally planned — <code>NodeType.Name</code>/<code>KnowledgeNode.CanonicalName</code> stay unrestricted, since neither is ever parsed as DSL syntax.</p>
     </section>
 
     <section id="erd">
