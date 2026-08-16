@@ -447,7 +447,7 @@
         </tbody>
       </table>
       <p class="caption">Surface syntax is unchanged since the earlier jsonb-column design — <code>.name</code> still means "this node's scalar attribute called <code>name</code>" — only the resolution mechanism has moved twice: from a jsonb key lookup on a single blob column, to a join against <code>attribute_type</code>/<code>knowledge_node_attribute</code>, and now to a direct keyed lookup on <code>(knowledge_node_id, key)</code> — no join at all, now that <code>attribute_type</code> is gone.</p>
-      <p class="caption">Implemented as <code class="mono">POST /nodes/resolve</code>, resolved in bulk — one call accepts many <code>(nodeId, paths[])</code> entries, the whole reason the future App Server's due-cards read path stays at two HTTP calls, however many cards are due. A path that can't be resolved (missing node, hop, or attribute/media key) fails just that one path, not the batch.</p>
+      <p class="caption">Implemented as <code class="mono">POST /nodes/resolve</code>, resolved in bulk — one call accepts many <code>(nodeId, paths[])</code> entries, the whole reason the future App Server's due-cards read path stays at two HTTP calls, however many cards are due. A path that can't be resolved (missing node, hop, or attribute/media key) fails just that one path, not the batch. A sibling endpoint, <code class="mono">POST /nodes/resolve/type</code>, takes a NodeType name instead of an explicit node list — it finds every <code>KnowledgeNode</code> of that type and resolves the same paths against each in one call. <code>404</code> if the NodeType name itself doesn't exist, <code>200</code> with an empty list if it exists but has no nodes yet. This is what deck generation (below) uses to seed a deck's cards without a separate <code>GET /nodes</code> call first.</p>
       <p class="caption">Every <code>name</code> in a hop or terminal — a <code>RelationshipType.Name</code>, or an attribute/media <code>key</code> — is DB-constrained to letters only (no digits, no punctuation): <code>_</code>/<code>.</code>/<code>#</code>/<code>&gt;</code> are the grammar's own delimiters, so a name containing one is ambiguous to parse. Discovered, not originally planned — <code>NodeType.Name</code>/<code>KnowledgeNode.CanonicalName</code> stay unrestricted, since neither is ever parsed as DSL syntax.</p>
     </section>
 
@@ -615,15 +615,13 @@ sequenceDiagram
     participant K as Knowledge
 
     U->>L: POST /leitnerDecks/generate
-    L->>K: GET /nodes?nodeTypeId=
-    K-->>L: matching nodes
-    L->>L: create deck + cards + faces
-    L->>K: POST /nodes/resolve (seed cache)
-    K-->>L: resolved values
+    L->>K: POST /nodes/resolve/type (nodeTypeName + paths)
+    K-->>L: resolved values, per matching node
+    L->>L: create deck + cards + faces (seeded from resolved values)
     L-->>U: deck created
             </pre>
           </div>
-          <p class="caption">Deck generation — the one narrow, explicit Learning→Knowledge exception.</p>
+          <p class="caption">Deck generation — the one narrow, explicit Learning→Knowledge exception. One call now, not two — <code class="mono">POST /nodes/resolve/type</code> finds every matching node and resolves the seed paths against each in a single round trip.</p>
         </div>
       </div>
     </section>
