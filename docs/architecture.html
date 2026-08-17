@@ -430,7 +430,7 @@
       <h2>Property path DSL</h2>
       <p class="lede">A small custom grammar for pulling a single value out of the graph, starting from a node — how <code>LeitnerCardFace</code> describes what to quiz on. No existing standard matches this exact compact form; it borrows JSONPath's property-access notation and Cypher/Gremlin's traversal steps.</p>
       <div class="grammar"><span class="kw">path</span>     := hop* terminal
-<span class="kw">hop</span>      := <span class="kw">'&gt;'</span> name    <span class="cm">-- follow a KnowledgeRelation by RelationshipType.Name (forward only)</span>
+<span class="kw">hop</span>      := (<span class="kw">'&gt;'</span> | <span class="kw">'&lt;'</span>) name    <span class="cm">-- follow a KnowledgeRelation by RelationshipType.Name, forward (&gt;) or backward (&lt;)</span>
 <span class="kw">terminal</span> := column | attribute | media
 <span class="kw">column</span>   := <span class="kw">'_'</span> name    <span class="cm">-- a KnowledgeNode column: id | canonicalName | description</span>
 <span class="kw">attribute</span> := <span class="kw">'.'</span> name    <span class="cm">-- KnowledgeNodeAttribute.Value where Key = name</span>
@@ -441,14 +441,17 @@
           <tr><td class="path mono">_canonicalName</td><td>The node's own name</td></tr>
           <tr><td class="path mono">#flag</td><td>The node's own flag media</td></tr>
           <tr><td class="path mono">.population</td><td>The node's <code>KnowledgeNodeAttribute</code> row where <code>Key = "population"</code></td></tr>
-          <tr><td class="path mono">&gt;capital_canonicalName</td><td>Follow <code>capital</code> to another node, then its name</td></tr>
+          <tr><td class="path mono">&gt;capital_canonicalName</td><td>Follow <code>capital</code> forward to another node, then its name</td></tr>
+          <tr><td class="path mono">&lt;capital_canonicalName</td><td>Follow <code>capital</code> backward — from the target of a <code>capital</code> relation back to its source — then its name</td></tr>
           <tr><td class="path mono">&gt;partOf&gt;partOf_canonicalName</td><td>Two hops (city → region → country), then name</td></tr>
+          <tr><td class="path mono">&gt;partOf&lt;capital_canonicalName</td><td>Mixed-direction hops are allowed — direction is per-hop, not per-path</td></tr>
           <tr><td class="path mono">literal</td><td>Learning-only sentinel: skip resolution, use the card face's cached value as-is</td></tr>
         </tbody>
       </table>
       <p class="caption">Surface syntax is unchanged since the earlier jsonb-column design — <code>.name</code> still means "this node's scalar attribute called <code>name</code>" — only the resolution mechanism has moved twice: from a jsonb key lookup on a single blob column, to a join against <code>attribute_type</code>/<code>knowledge_node_attribute</code>, and now to a direct keyed lookup on <code>(knowledge_node_id, key)</code> — no join at all, now that <code>attribute_type</code> is gone.</p>
       <p class="caption">Implemented as <code class="mono">POST /nodes/resolve</code>, resolved in bulk — one call accepts many <code>(nodeId, paths[])</code> entries, the whole reason the future App Server's due-cards read path stays at two HTTP calls, however many cards are due. A path that can't be resolved (missing node, hop, or attribute/media key) fails just that one path, not the batch. A sibling endpoint, <code class="mono">POST /nodes/resolve/type</code>, takes a NodeType name instead of an explicit node list — it finds every <code>KnowledgeNode</code> of that type and resolves the same paths against each in one call. <code>404</code> if the NodeType name itself doesn't exist, <code>200</code> with an empty list if it exists but has no nodes yet. This is what deck generation (below) uses to seed a deck's cards without a separate <code>GET /nodes</code> call first.</p>
-      <p class="caption">Every <code>name</code> in a hop or terminal — a <code>RelationshipType.Name</code>, or an attribute/media <code>key</code> — is DB-constrained to letters only (no digits, no punctuation): <code>_</code>/<code>.</code>/<code>#</code>/<code>&gt;</code> are the grammar's own delimiters, so a name containing one is ambiguous to parse. Discovered, not originally planned — <code>NodeType.Name</code>/<code>KnowledgeNode.CanonicalName</code> stay unrestricted, since neither is ever parsed as DSL syntax.</p>
+      <p class="caption">Every <code>name</code> in a hop or terminal — a <code>RelationshipType.Name</code>, or an attribute/media <code>key</code> — is DB-constrained to letters only (no digits, no punctuation): <code>_</code>/<code>.</code>/<code>#</code>/<code>&gt;</code>/<code>&lt;</code> are the grammar's own delimiters, so a name containing one is ambiguous to parse. Discovered, not originally planned — <code>NodeType.Name</code>/<code>KnowledgeNode.CanonicalName</code> stay unrestricted, since neither is ever parsed as DSL syntax.</p>
+      <p class="caption">Both directions match the same <code>RelationshipType.Name</code> column — there's no separate inverse-name column. An earlier <code>InverseName</code> column existed briefly for this and was removed; reverse traversal instead reuses <code>Name</code>, walking a matched relation backward, behind its own explicit <code>&lt;</code> token rather than a silent fallback on <code>&gt;</code>.</p>
     </section>
 
     <section id="erd">
