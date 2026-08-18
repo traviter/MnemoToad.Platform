@@ -330,7 +330,8 @@
     <a class="nav-link" href="#attributes"><span class="nav-dot" style="background:var(--knowledge)"></span><span class="nav-num">01</span> Attributes</a>
     <a class="nav-link" href="#media"><span class="nav-dot" style="background:var(--knowledge)"></span><span class="nav-num">02</span> Media</a>
     <a class="nav-link" href="#pathdsl"><span class="nav-dot" style="background:var(--knowledge)"></span><span class="nav-num">03</span> Path DSL</a>
-    <a class="nav-link" href="#erd"><span class="nav-num">—</span> Schema (ER)</a>
+    <a class="nav-link" href="#erd-knowledge"><span class="nav-dot" style="background:var(--knowledge)"></span><span class="nav-num">—</span> Knowledge schema</a>
+    <a class="nav-link" href="#erd-learning"><span class="nav-dot" style="background:var(--learning)"></span><span class="nav-num">—</span> Learning schema</a>
     <a class="nav-link" href="#learning"><span class="nav-dot" style="background:var(--learning)"></span><span class="nav-num">04</span> Leitner model</a>
     <a class="nav-link" href="#appserver"><span class="nav-dot" style="background:var(--appserver)"></span><span class="nav-num">05</span> App Server</a>
     <a class="nav-link" href="#interactions"><span class="nav-num">—</span> API interactions</a>
@@ -454,10 +455,10 @@
       <p class="caption">Both directions match the same <code>RelationshipType.Name</code> column — there's no separate inverse-name column. An earlier <code>InverseName</code> column existed briefly for this and was removed; reverse traversal instead reuses <code>Name</code>, walking a matched relation backward, behind its own explicit <code>&lt;</code> token rather than a silent fallback on <code>&gt;</code>.</p>
     </section>
 
-    <section id="erd">
-      <div class="eyebrow"><span class="num">—</span> Schema</div>
-      <h2>Entity relationships</h2>
-      <p class="lede">Knowledge and Learning are separate Postgres databases on the same server. The dotted line below is the one place that matters: Learning references a Knowledge node by bare UUID, with no real foreign key — Postgres can't enforce a constraint across databases.</p>
+    <section id="erd-knowledge">
+      <div class="eyebrow"><span class="tag knowledge">Knowledge</span><span class="num">—</span></div>
+      <h2>Schema</h2>
+      <p class="lede">The graph: typed nodes, typed relations between them, and normalized attribute/media tables hanging off each node.</p>
       <div class="panel">
         <pre class="mermaid pre-mermaid">
 erDiagram
@@ -466,14 +467,8 @@ erDiagram
     KNOWLEDGE_NODE ||--o{ KNOWLEDGE_RELATION : "source"
     KNOWLEDGE_NODE ||--o{ KNOWLEDGE_RELATION : "target"
     KNOWLEDGE_NODE ||--o{ KNOWLEDGE_NODE_ATTRIBUTE : "has"
-    MEDIA_ASSET |o..o| KNOWLEDGE_NODE_MEDIA : "referenced by, no FK"
     KNOWLEDGE_NODE ||--o{ KNOWLEDGE_NODE_MEDIA : "has"
-    LEITNER_DECK ||--o{ LEITNER_CARD : contains
-    LEITNER_CARD ||--o{ LEITNER_CARD_FACE : has
-    LEITNER_DECK ||--o| LEITNER_DECK_KNOWLEDGE_SOURCE : "optional 1:1, shared PK"
-    LEITNER_CARD ||--o| LEITNER_CARD_KNOWLEDGE_SOURCE : "optional 1:1, shared PK"
-    LEITNER_CARD_FACE ||--o| LEITNER_CARD_FACE_KNOWLEDGE_SOURCE : "optional 1:1, shared PK"
-    KNOWLEDGE_NODE |o..o| LEITNER_CARD_KNOWLEDGE_SOURCE : "references, no FK, separate database"
+    MEDIA_ASSET |o..o| KNOWLEDGE_NODE_MEDIA : "referenced by, no FK"
 
     NODE_TYPE {
         uuid id PK
@@ -513,6 +508,24 @@ erDiagram
         string alt_text
         jsonb metadata
     }
+        </pre>
+      </div>
+    </section>
+
+    <section id="erd-learning">
+      <div class="eyebrow"><span class="tag learning">Learning</span><span class="num">—</span></div>
+      <h2>Schema</h2>
+      <p class="lede">Two hierarchies of the same shape, stacked: a core spine (deck → card → face, top) that is fully Knowledge-agnostic, and an optional knowledge-source table hanging off each core table by a <strong>shared primary key</strong> (bottom). A core row with no matching knowledge-source row is just a plain, manually-authored row — structurally identical to a Knowledge-generated one otherwise.</p>
+      <div class="panel">
+        <pre class="mermaid pre-mermaid">
+erDiagram
+    LEITNER_DECK ||--o{ LEITNER_CARD : contains
+    LEITNER_CARD ||--o{ LEITNER_CARD_FACE : has
+
+    LEITNER_DECK ||--o| LEITNER_DECK_KNOWLEDGE_SOURCE : "optional 1:1, shared PK"
+    LEITNER_CARD ||--o| LEITNER_CARD_KNOWLEDGE_SOURCE : "optional 1:1, shared PK"
+    LEITNER_CARD_FACE ||--o| LEITNER_CARD_FACE_KNOWLEDGE_SOURCE : "optional 1:1, shared PK"
+
     LEITNER_DECK {
         uuid id PK
         string name
@@ -538,6 +551,7 @@ erDiagram
         int interval_hours
         int variance_hours
     }
+
     LEITNER_DECK_KNOWLEDGE_SOURCE {
         uuid leitner_deck_id PK, FK
         jsonb resolution_query
@@ -553,7 +567,8 @@ erDiagram
         </pre>
       </div>
       <p class="caption">LEITNER_SCHEDULE has no drawn relationship — it's matched against LEITNER_CARD.box_number at runtime (application logic), not joined by a foreign key.</p>
-      <p class="caption">The three <code>LEITNER_*_KNOWLEDGE_SOURCE</code> tables are the whole of Learning's Knowledge coupling — every other Learning table is fully standalone. Each one's primary key <em>is</em> the foreign key back to its base row (no separate <code>id</code> column), so the relationship is optional purely by the row existing or not — no nullable column, no extra <code>UNIQUE</code> constraint needed. <code>LEITNER_DECK_KNOWLEDGE_SOURCE.resolution_query</code> holds the full generation request (NodeType + face paths) so a future regenerate/refresh could replay it — it's not drawn with an edge to <code>NODE_TYPE</code> since that reference lives inside the jsonb, not as a real column.</p>
+      <p class="caption">Each <code>LEITNER_*_KNOWLEDGE_SOURCE</code> table's primary key <em>is</em> its foreign key back to the base row (no separate <code>id</code> column) — the relationship is optional purely by the row existing or not, no nullable column or extra <code>UNIQUE</code> constraint needed. <code>LEITNER_DECK_KNOWLEDGE_SOURCE.resolution_query</code> holds the full generation request (NodeType + face paths) verbatim, so a future regenerate/refresh could replay it — not drawn as an edge to Knowledge's <code>NODE_TYPE</code>, since that reference lives inside the jsonb, not a real column.</p>
+      <p class="caption">Not drawn, since it would have to cross into the Knowledge diagram above: <code>leitner_card_knowledge_source.knowledge_node_id</code> is a bare UUID pointing at a Knowledge node, with no real foreign key — Postgres can't enforce a constraint across the two separate databases. It's the one place Learning's schema reaches outside itself at all.</p>
     </section>
 
     <section id="learning">
