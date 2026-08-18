@@ -274,6 +274,19 @@
   .grammar .kw { color: var(--toad); font-weight: 600; }
   .grammar .cm { color: var(--ink-muted); font-style: italic; }
 
+  .schema-diagram { font-family: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace; }
+  .schema-diagram .tbl-core rect { fill: var(--learning-soft); stroke: var(--learning); stroke-width: 1.5; }
+  .schema-diagram .tbl-src rect { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1.5; }
+  .schema-diagram .tbl-sched rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; stroke-dasharray: 4 3; }
+  .schema-diagram .tbl-name { font-weight: 700; font-size: 12px; fill: var(--ink); text-anchor: middle; }
+  .schema-diagram .tbl-attr { font-size: 11px; fill: var(--ink-muted); }
+  .schema-diagram .tbl-divider { stroke: var(--line); }
+  .schema-diagram .edge-core { stroke: var(--ink-muted); stroke-width: 1.5; fill: none; }
+  .schema-diagram .edge-src { stroke: var(--line-strong); stroke-width: 1.5; stroke-dasharray: 5 4; fill: none; }
+  .schema-diagram .edge-label { font-size: 10.5px; fill: var(--ink-muted); }
+  .schema-diagram .edge-label-bg { fill: var(--surface); }
+  .schema-diagram .lk-arrowhead { fill: var(--ink-muted); }
+
   table.data {
     width: 100%;
     border-collapse: collapse;
@@ -515,58 +528,106 @@ erDiagram
     <section id="erd-learning">
       <div class="eyebrow"><span class="tag learning">Learning</span><span class="num">—</span></div>
       <h2>Schema</h2>
-      <p class="lede">Two hierarchies of the same shape, stacked: a core spine (deck → card → face, top) that is fully Knowledge-agnostic, and an optional knowledge-source table hanging off each core table by a <strong>shared primary key</strong> (bottom). A core row with no matching knowledge-source row is just a plain, manually-authored row — structurally identical to a Knowledge-generated one otherwise.</p>
+      <p class="lede">Two columns, side by side: the core spine (deck → card → face, left) that is fully Knowledge-agnostic, and its optional knowledge-source counterpart (right), each row attached to its core row by a <strong>shared primary key</strong>. A core row with no matching knowledge-source row is just a plain, manually-authored row — structurally identical to a Knowledge-generated one otherwise. (Hand-laid-out, not Mermaid — Mermaid's auto-layout can't hold a nested column both vertically stacked <em>and</em> row-aligned with its sibling once any edge crosses between them.)</p>
       <div class="panel">
-        <pre class="mermaid pre-mermaid">
-erDiagram
-    LEITNER_DECK ||--o{ LEITNER_CARD : contains
-    LEITNER_CARD ||--o{ LEITNER_CARD_FACE : has
+        <svg class="schema-diagram" viewBox="0 0 800 748" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="lk-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path class="lk-arrowhead" d="M0,0 L10,5 L0,10 z" />
+            </marker>
+          </defs>
 
-    LEITNER_DECK ||--o| LEITNER_DECK_KNOWLEDGE_SOURCE : "optional 1:1, shared PK"
-    LEITNER_CARD ||--o| LEITNER_CARD_KNOWLEDGE_SOURCE : "optional 1:1, shared PK"
-    LEITNER_CARD_FACE ||--o| LEITNER_CARD_FACE_KNOWLEDGE_SOURCE : "optional 1:1, shared PK"
+          <!-- core spine arrows -->
+          <line class="edge-core" x1="170" y1="172" x2="170" y2="216" marker-end="url(#lk-arrow)" />
+          <text class="edge-label" x="182" y="200">contains</text>
+          <line class="edge-core" x1="170" y1="354" x2="170" y2="398" marker-end="url(#lk-arrow)" />
+          <text class="edge-label" x="182" y="382">has</text>
 
-    LEITNER_DECK {
-        uuid id PK
-        string name
-        string description
-    }
-    LEITNER_CARD {
-        uuid id PK
-        uuid leitner_deck_id FK
-        int box_number
-        timestamp due_utc
-        timestamp last_reviewed_utc
-    }
-    LEITNER_CARD_FACE {
-        uuid id PK
-        uuid leitner_card_id FK
-        int face_index
-        jsonb content
-        leitner_content_type content_type "enum: attribute | media"
-    }
-    LEITNER_SCHEDULE {
-        uuid id PK
-        int box_number
-        int interval_hours
-        int variance_hours
-    }
+          <!-- shared-PK connectors -->
+          <line class="edge-src" x1="320" y1="106" x2="460" y2="106" />
+          <rect class="edge-label-bg" x="357" y="97" width="66" height="14" />
+          <text class="edge-label" x="390" y="107" text-anchor="middle">shared PK</text>
+          <line class="edge-src" x1="320" y1="288" x2="460" y2="288" />
+          <rect class="edge-label-bg" x="357" y="279" width="66" height="14" />
+          <text class="edge-label" x="390" y="289" text-anchor="middle">shared PK</text>
+          <line class="edge-src" x1="320" y1="470" x2="460" y2="470" />
+          <rect class="edge-label-bg" x="357" y="461" width="66" height="14" />
+          <text class="edge-label" x="390" y="471" text-anchor="middle">shared PK</text>
 
-    LEITNER_DECK_KNOWLEDGE_SOURCE {
-        uuid leitner_deck_id PK, FK
-        jsonb resolution_query
-    }
-    LEITNER_CARD_KNOWLEDGE_SOURCE {
-        uuid leitner_card_id PK, FK
-        uuid knowledge_node_id "no FK, cross-database"
-    }
-    LEITNER_CARD_FACE_KNOWLEDGE_SOURCE {
-        uuid leitner_card_face_id PK, FK
-        string property_path
-    }
-        </pre>
+          <!-- LEITNER_DECK -->
+          <g class="tbl-core">
+            <rect x="20" y="40" width="300" height="132" rx="8" />
+            <text class="tbl-name" x="170" y="64">LEITNER_DECK</text>
+            <line class="tbl-divider" x1="32" y1="74" x2="308" y2="74" />
+            <text class="tbl-attr" x="36" y="90">uuid id PK</text>
+            <text class="tbl-attr" x="36" y="106">string name</text>
+            <text class="tbl-attr" x="36" y="122">string description</text>
+          </g>
+
+          <!-- LEITNER_CARD -->
+          <g class="tbl-core">
+            <rect x="20" y="222" width="300" height="132" rx="8" />
+            <text class="tbl-name" x="170" y="246">LEITNER_CARD</text>
+            <line class="tbl-divider" x1="32" y1="256" x2="308" y2="256" />
+            <text class="tbl-attr" x="36" y="272">uuid id PK</text>
+            <text class="tbl-attr" x="36" y="288">uuid leitner_deck_id FK</text>
+            <text class="tbl-attr" x="36" y="304">int box_number</text>
+            <text class="tbl-attr" x="36" y="320">timestamp due_utc</text>
+            <text class="tbl-attr" x="36" y="336">timestamp last_reviewed_utc</text>
+          </g>
+
+          <!-- LEITNER_CARD_FACE -->
+          <g class="tbl-core">
+            <rect x="20" y="404" width="300" height="132" rx="8" />
+            <text class="tbl-name" x="170" y="428">LEITNER_CARD_FACE</text>
+            <line class="tbl-divider" x1="32" y1="438" x2="308" y2="438" />
+            <text class="tbl-attr" x="36" y="454">uuid id PK</text>
+            <text class="tbl-attr" x="36" y="470">uuid leitner_card_id FK</text>
+            <text class="tbl-attr" x="36" y="486">int face_index</text>
+            <text class="tbl-attr" x="36" y="502">jsonb content</text>
+            <text class="tbl-attr" x="36" y="518">leitner_content_type content_type</text>
+          </g>
+
+          <!-- LEITNER_SCHEDULE -->
+          <g class="tbl-sched">
+            <rect x="20" y="576" width="300" height="132" rx="8" />
+            <text class="tbl-name" x="170" y="600">LEITNER_SCHEDULE</text>
+            <line class="tbl-divider" x1="32" y1="610" x2="308" y2="610" />
+            <text class="tbl-attr" x="36" y="626">uuid id PK</text>
+            <text class="tbl-attr" x="36" y="642">int box_number</text>
+            <text class="tbl-attr" x="36" y="658">int interval_hours</text>
+            <text class="tbl-attr" x="36" y="674">int variance_hours</text>
+          </g>
+
+          <!-- LEITNER_DECK_KNOWLEDGE_SOURCE -->
+          <g class="tbl-src">
+            <rect x="460" y="40" width="300" height="132" rx="8" />
+            <text class="tbl-name" x="610" y="64">LEITNER_DECK_KNOWLEDGE_SOURCE</text>
+            <line class="tbl-divider" x1="472" y1="74" x2="748" y2="74" />
+            <text class="tbl-attr" x="476" y="90">uuid leitner_deck_id PK,FK</text>
+            <text class="tbl-attr" x="476" y="106">jsonb resolution_query</text>
+          </g>
+
+          <!-- LEITNER_CARD_KNOWLEDGE_SOURCE -->
+          <g class="tbl-src">
+            <rect x="460" y="222" width="300" height="132" rx="8" />
+            <text class="tbl-name" x="610" y="246">LEITNER_CARD_KNOWLEDGE_SOURCE</text>
+            <line class="tbl-divider" x1="472" y1="256" x2="748" y2="256" />
+            <text class="tbl-attr" x="476" y="272">uuid leitner_card_id PK,FK</text>
+            <text class="tbl-attr" x="476" y="288">uuid knowledge_node_id (no FK)</text>
+          </g>
+
+          <!-- LEITNER_CARD_FACE_KNOWLEDGE_SOURCE -->
+          <g class="tbl-src">
+            <rect x="460" y="404" width="300" height="132" rx="8" />
+            <text class="tbl-name" x="610" y="428">LEITNER_CARD_FACE_KNOWLEDGE_SOURCE</text>
+            <line class="tbl-divider" x1="472" y1="438" x2="748" y2="438" />
+            <text class="tbl-attr" x="476" y="454">uuid leitner_card_face_id PK,FK</text>
+            <text class="tbl-attr" x="476" y="470">string property_path</text>
+          </g>
+        </svg>
       </div>
-      <p class="caption">LEITNER_SCHEDULE has no drawn relationship — it's matched against LEITNER_CARD.box_number at runtime (application logic), not joined by a foreign key.</p>
+      <p class="caption">LEITNER_SCHEDULE (dashed border, bottom left) has no drawn relationship — it's matched against LEITNER_CARD.box_number at runtime (application logic), not joined by a foreign key.</p>
       <p class="caption">Each <code>LEITNER_*_KNOWLEDGE_SOURCE</code> table's primary key <em>is</em> its foreign key back to the base row (no separate <code>id</code> column) — the relationship is optional purely by the row existing or not, no nullable column or extra <code>UNIQUE</code> constraint needed. <code>LEITNER_DECK_KNOWLEDGE_SOURCE.resolution_query</code> holds the full generation request (NodeType + face paths) verbatim, so a future regenerate/refresh could replay it — not drawn as an edge to Knowledge's <code>NODE_TYPE</code>, since that reference lives inside the jsonb, not a real column.</p>
       <p class="caption">Not drawn, since it would have to cross into the Knowledge diagram above: <code>leitner_card_knowledge_source.knowledge_node_id</code> is a bare UUID pointing at a Knowledge node, with no real foreign key — Postgres can't enforce a constraint across the two separate databases. It's the one place Learning's schema reaches outside itself at all.</p>
     </section>
