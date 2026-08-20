@@ -274,19 +274,6 @@
   .grammar .kw { color: var(--toad); font-weight: 600; }
   .grammar .cm { color: var(--ink-muted); font-style: italic; }
 
-  .schema-diagram { font-family: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace; }
-  .schema-diagram .tbl-core rect { fill: var(--learning-soft); stroke: var(--learning); stroke-width: 1.5; }
-  .schema-diagram .tbl-src rect { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1.5; }
-  .schema-diagram .tbl-sched rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; stroke-dasharray: 4 3; }
-  .schema-diagram .tbl-name { font-weight: 700; font-size: 12px; fill: var(--ink); text-anchor: middle; }
-  .schema-diagram .tbl-attr { font-size: 11px; fill: var(--ink-muted); }
-  .schema-diagram .tbl-divider { stroke: var(--line); }
-  .schema-diagram .edge-core { stroke: var(--ink-muted); stroke-width: 1.5; fill: none; }
-  .schema-diagram .edge-src { stroke: var(--line-strong); stroke-width: 1.5; stroke-dasharray: 5 4; fill: none; }
-  .schema-diagram .edge-label { font-size: 10.5px; fill: var(--ink-muted); }
-  .schema-diagram .edge-label-bg { fill: var(--surface); }
-  .schema-diagram .lk-arrowhead { fill: var(--ink-muted); }
-
   table.data {
     width: 100%;
     border-collapse: collapse;
@@ -387,7 +374,7 @@
         <div class="decision-card">
           <div class="n">4</div>
           <h3>Cards are N-faced, Knowledge-optional</h3>
-          <p>Core Leitner tables hold no Knowledge columns at all — a face just stores <code>Content</code>. A parallel, optional 1:1 table (shared primary key) attaches a path when a card <em>is</em> Knowledge-derived, resolved fresh and diffed against <code>Content</code> to detect drift. A manually-authored card is first-class, not a degraded case.</p>
+          <p>A card's <code>node_id</code> is a plain nullable column (no FK — Postgres can't enforce one across databases), the only Knowledge linkage left. No parallel source tables — a face just stores <code>property_path</code>/<code>content</code> directly. A manually-authored card (<code>node_id IS NULL</code>) is first-class, not a degraded case.</p>
         </div>
       </div>
     </section>
@@ -461,7 +448,7 @@
           <tr><td class="path mono">&gt;partOf&lt;capital_canonicalName</td><td>Mixed-direction hops are allowed — direction is per-hop, not per-path</td></tr>
         </tbody>
       </table>
-      <p class="caption">No <code>literal</code> sentinel anymore — an earlier design used that string on <code>LeitnerCardFace.PropertyPath</code> to mean "skip resolution, use the cached value as-is." Now that a path only exists at all in the optional <code>LeitnerCardFaceKnowledgeSource</code> table (§4), "pinned/literal" is just that row being absent — nothing for this grammar to special-case.</p>
+      <p class="caption">No <code>literal</code> sentinel — an earlier design used that string on <code>LeitnerCardFace.PropertyPath</code> to mean "skip resolution, use the cached value as-is," back when a path only existed via a separate optional source table. That table's gone (§4): every <code>leitner_card_face</code> now carries its <code>property_path</code> directly (<code>_canonicalName</code>, <code>.population</code>, <code>#flag</code>, ...), whether or not the owning card is Knowledge-linked. Whether a linked card's content can drift from Knowledge, or how re-resolving it would work, isn't designed yet.</p>
       <p class="caption">Surface syntax is unchanged since the earlier jsonb-column design — <code>.name</code> still means "this node's scalar attribute called <code>name</code>" — only the resolution mechanism has moved twice: from a jsonb key lookup on a single blob column, to a join against <code>attribute_type</code>/<code>knowledge_node_attribute</code>, and now to a direct keyed lookup on <code>(knowledge_node_id, key)</code> — no join at all, now that <code>attribute_type</code> is gone.</p>
       <p class="caption">Implemented as <code class="mono">POST /nodes/resolve</code>, resolved in bulk — one call accepts many <code>(nodeId, paths[])</code> entries, the whole reason the future App Server's due-cards read path stays at two HTTP calls, however many cards are due. A path that can't be resolved (missing node, hop, or attribute/media key) fails just that one path, not the batch. A sibling endpoint, <code class="mono">POST /nodes/resolve/type</code>, takes a NodeType name instead of an explicit node list — it finds every <code>KnowledgeNode</code> of that type and resolves the same paths against each in one call. <code>404</code> if the NodeType name itself doesn't exist, <code>200</code> with an empty list if it exists but has no nodes yet. This is what deck generation (below) uses to seed a deck's cards without a separate <code>GET /nodes</code> call first.</p>
       <p class="caption">Every <code>name</code> in a hop or terminal — a <code>RelationshipType.Name</code>, or an attribute/media <code>key</code> — is DB-constrained to letters only (no digits, no punctuation): <code>_</code>/<code>.</code>/<code>#</code>/<code>&gt;</code>/<code>&lt;</code> are the grammar's own delimiters, so a name containing one is ambiguous to parse. Discovered, not originally planned — <code>NodeType.Name</code>/<code>KnowledgeNode.CanonicalName</code> stay unrestricted, since neither is ever parsed as DSL syntax.</p>
@@ -528,108 +515,43 @@ erDiagram
     <section id="erd-learning">
       <div class="eyebrow"><span class="tag learning">Learning</span><span class="num">—</span></div>
       <h2>Schema</h2>
-      <p class="lede">Two columns, side by side: the core spine (deck → card → face, left) that is fully Knowledge-agnostic, and its optional knowledge-source counterpart (right), each row attached to its core row by a <strong>shared primary key</strong>. A core row with no matching knowledge-source row is just a plain, manually-authored row — structurally identical to a Knowledge-generated one otherwise. (Hand-laid-out, not Mermaid — Mermaid's auto-layout can't hold a nested column both vertically stacked <em>and</em> row-aligned with its sibling once any edge crosses between them.)</p>
+      <p class="lede">The core spine: deck → card → face. Fewer tables than the design once had — a card's optional Knowledge link is just a nullable <code>node_id</code> column, not a parallel source table, and a face stores its <code>property_path</code>/<code>content</code> directly rather than through a second optional row.</p>
       <div class="panel">
-        <svg class="schema-diagram" viewBox="0 0 800 748" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <marker id="lk-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-              <path class="lk-arrowhead" d="M0,0 L10,5 L0,10 z" />
-            </marker>
-          </defs>
+        <pre class="mermaid pre-mermaid">
+erDiagram
+    LEITNER_DECK ||--o{ LEITNER_CARD : "contains"
+    LEITNER_CARD ||--o{ LEITNER_CARD_FACE : "has"
 
-          <!-- core spine arrows -->
-          <line class="edge-core" x1="170" y1="172" x2="170" y2="216" marker-end="url(#lk-arrow)" />
-          <text class="edge-label" x="182" y="200">contains</text>
-          <line class="edge-core" x1="170" y1="354" x2="170" y2="398" marker-end="url(#lk-arrow)" />
-          <text class="edge-label" x="182" y="382">has</text>
-
-          <!-- shared-PK connectors -->
-          <line class="edge-src" x1="320" y1="106" x2="460" y2="106" />
-          <rect class="edge-label-bg" x="357" y="97" width="66" height="14" />
-          <text class="edge-label" x="390" y="107" text-anchor="middle">shared PK</text>
-          <line class="edge-src" x1="320" y1="288" x2="460" y2="288" />
-          <rect class="edge-label-bg" x="357" y="279" width="66" height="14" />
-          <text class="edge-label" x="390" y="289" text-anchor="middle">shared PK</text>
-          <line class="edge-src" x1="320" y1="470" x2="460" y2="470" />
-          <rect class="edge-label-bg" x="357" y="461" width="66" height="14" />
-          <text class="edge-label" x="390" y="471" text-anchor="middle">shared PK</text>
-
-          <!-- LEITNER_DECK -->
-          <g class="tbl-core">
-            <rect x="20" y="40" width="300" height="132" rx="8" />
-            <text class="tbl-name" x="170" y="64">LEITNER_DECK</text>
-            <line class="tbl-divider" x1="32" y1="74" x2="308" y2="74" />
-            <text class="tbl-attr" x="36" y="90">uuid id PK</text>
-            <text class="tbl-attr" x="36" y="106">string name</text>
-            <text class="tbl-attr" x="36" y="122">string description</text>
-          </g>
-
-          <!-- LEITNER_CARD -->
-          <g class="tbl-core">
-            <rect x="20" y="222" width="300" height="132" rx="8" />
-            <text class="tbl-name" x="170" y="246">LEITNER_CARD</text>
-            <line class="tbl-divider" x1="32" y1="256" x2="308" y2="256" />
-            <text class="tbl-attr" x="36" y="272">uuid id PK</text>
-            <text class="tbl-attr" x="36" y="288">uuid leitner_deck_id FK</text>
-            <text class="tbl-attr" x="36" y="304">int box_number</text>
-            <text class="tbl-attr" x="36" y="320">timestamp due_utc</text>
-            <text class="tbl-attr" x="36" y="336">timestamp last_reviewed_utc</text>
-          </g>
-
-          <!-- LEITNER_CARD_FACE -->
-          <g class="tbl-core">
-            <rect x="20" y="404" width="300" height="132" rx="8" />
-            <text class="tbl-name" x="170" y="428">LEITNER_CARD_FACE</text>
-            <line class="tbl-divider" x1="32" y1="438" x2="308" y2="438" />
-            <text class="tbl-attr" x="36" y="454">uuid id PK</text>
-            <text class="tbl-attr" x="36" y="470">uuid leitner_card_id FK</text>
-            <text class="tbl-attr" x="36" y="486">int face_index</text>
-            <text class="tbl-attr" x="36" y="502">jsonb content</text>
-            <text class="tbl-attr" x="36" y="518">leitner_content_type content_type</text>
-          </g>
-
-          <!-- LEITNER_SCHEDULE -->
-          <g class="tbl-sched">
-            <rect x="20" y="576" width="300" height="132" rx="8" />
-            <text class="tbl-name" x="170" y="600">LEITNER_SCHEDULE</text>
-            <line class="tbl-divider" x1="32" y1="610" x2="308" y2="610" />
-            <text class="tbl-attr" x="36" y="626">uuid id PK</text>
-            <text class="tbl-attr" x="36" y="642">int box_number</text>
-            <text class="tbl-attr" x="36" y="658">int interval_hours</text>
-            <text class="tbl-attr" x="36" y="674">int variance_hours</text>
-          </g>
-
-          <!-- LEITNER_DECK_KNOWLEDGE_SOURCE -->
-          <g class="tbl-src">
-            <rect x="460" y="40" width="300" height="132" rx="8" />
-            <text class="tbl-name" x="610" y="64">LEITNER_DECK_KNOWLEDGE_SOURCE</text>
-            <line class="tbl-divider" x1="472" y1="74" x2="748" y2="74" />
-            <text class="tbl-attr" x="476" y="90">uuid leitner_deck_id PK,FK</text>
-            <text class="tbl-attr" x="476" y="106">jsonb resolution_query</text>
-          </g>
-
-          <!-- LEITNER_CARD_KNOWLEDGE_SOURCE -->
-          <g class="tbl-src">
-            <rect x="460" y="222" width="300" height="132" rx="8" />
-            <text class="tbl-name" x="610" y="246">LEITNER_CARD_KNOWLEDGE_SOURCE</text>
-            <line class="tbl-divider" x1="472" y1="256" x2="748" y2="256" />
-            <text class="tbl-attr" x="476" y="272">uuid leitner_card_id PK,FK</text>
-            <text class="tbl-attr" x="476" y="288">uuid knowledge_node_id (no FK)</text>
-          </g>
-
-          <!-- LEITNER_CARD_FACE_KNOWLEDGE_SOURCE -->
-          <g class="tbl-src">
-            <rect x="460" y="404" width="300" height="132" rx="8" />
-            <text class="tbl-name" x="610" y="428">LEITNER_CARD_FACE_KNOWLEDGE_SOURCE</text>
-            <line class="tbl-divider" x1="472" y1="438" x2="748" y2="438" />
-            <text class="tbl-attr" x="476" y="454">uuid leitner_card_face_id PK,FK</text>
-            <text class="tbl-attr" x="476" y="470">string property_path</text>
-          </g>
-        </svg>
+    LEITNER_DECK {
+        uuid id PK
+        string name
+        string description
+    }
+    LEITNER_CARD {
+        uuid id PK
+        uuid deck_id FK
+        uuid node_id "nullable, no FK"
+        int box_number
+        timestamp due_utc "nullable"
+        timestamp last_reviewed_utc "nullable"
+    }
+    LEITNER_CARD_FACE {
+        uuid leitner_card_id PK, FK
+        string property_path PK
+        int face_index
+        jsonb content
+    }
+    LEITNER_SCHEDULE {
+        uuid id PK
+        int box_number
+        int interval_hours
+        int variance_hours
+    }
+        </pre>
       </div>
-      <p class="caption">LEITNER_SCHEDULE (dashed border, bottom left) has no drawn relationship — it's matched against LEITNER_CARD.box_number at runtime (application logic), not joined by a foreign key.</p>
-      <p class="caption">Each <code>LEITNER_*_KNOWLEDGE_SOURCE</code> table's primary key <em>is</em> its foreign key back to the base row (no separate <code>id</code> column) — the relationship is optional purely by the row existing or not, no nullable column or extra <code>UNIQUE</code> constraint needed. <code>LEITNER_DECK_KNOWLEDGE_SOURCE.resolution_query</code> holds the full generation request (NodeType + face paths) verbatim, so a future regenerate/refresh could replay it — not drawn as an edge to Knowledge's <code>NODE_TYPE</code>, since that reference lives inside the jsonb, not a real column.</p>
-      <p class="caption">Not drawn, since it would have to cross into the Knowledge diagram above: <code>leitner_card_knowledge_source.knowledge_node_id</code> is a bare UUID pointing at a Knowledge node, with no real foreign key — Postgres can't enforce a constraint across the two separate databases. It's the one place Learning's schema reaches outside itself at all.</p>
+      <p class="caption">LEITNER_SCHEDULE has no drawn relationship — it's matched against LEITNER_CARD.box_number at runtime (application logic), not joined by a foreign key.</p>
+      <p class="caption">LEITNER_CARD_FACE's primary key is <code>(leitner_card_id, property_path)</code> — no separate <code>id</code> column, same composite-PK shape Knowledge uses for <code>KNOWLEDGE_NODE_ATTRIBUTE</code>/<code>KNOWLEDGE_NODE_MEDIA</code>. <code>face_index</code> isn't part of the API payload (order is conveyed by array/object position there) but is still stored, since ordering is expected to matter for quizzing later.</p>
+      <p class="caption">Not drawn, since it would have to cross into the Knowledge diagram above: <code>leitner_card.node_id</code> is a bare UUID pointing at a Knowledge node, with no real foreign key — Postgres can't enforce a constraint across the two separate databases. It's the one place Learning's schema reaches outside itself at all. A deck-level equivalent (how a generated deck would remember what created it) isn't designed yet.</p>
     </section>
 
     <section id="learning">
@@ -638,9 +560,9 @@ erDiagram
       <div class="service-block learning">
         <p>Box 0 is new/just-missed and immediately due. Correct answers promote toward the highest configured box; a miss drops straight back to 0. No <code>ReviewLog</code> — box state is overwritten in place, not appended as history.</p>
         <p class="small">The schedule (how far out each box due-dates, plus jitter) is a real table, <code>leitner_schedule</code>, not config — data-driven from the outset even though only one global schedule exists today.</p>
-        <p><strong>Core tables carry zero Knowledge columns.</strong> <code>leitner_card</code> has no node reference; <code>leitner_card_face</code> stores <code>content</code> (<code>jsonb</code>) and <code>content_type</code> directly — the authoritative value shown during review, not a cache of something else. <code>content_type</code> is a native Postgres <code>ENUM</code> (<code>leitner_content_type</code>: <code>attribute</code> | <code>media</code>), covering the two shapes the path DSL (§3) can ever hand back — a plain scalar, or the <code>{ id, alt_text, metadata }</code> media shape. A manually-authored deck writes <code>content</code> directly and never touches anything below.</p>
-        <p>Knowledge linkage lives entirely in three parallel tables — <code>leitner_deck_knowledge_source</code>, <code>leitner_card_knowledge_source</code>, <code>leitner_card_face_knowledge_source</code> — each an <strong>optional 1:1 via a shared primary key</strong> with its base table (see the ERD above). "Pinning" a face's content (freezing it against future drift) is simply <strong>deleting its <code>leitner_card_face_knowledge_source</code> row</strong>; "staying synchronized" means the row persists and a resync overwrites <code>content</code>/<code>content_type</code> in place. This replaces the earlier <code>"literal"</code> sentinel string entirely (§3) — row-presence <em>is</em> the sentinel now.</p>
-        <p class="small">The knowledge-source tables and <code>POST /leitnerDecks/generate</code> (the only Learning endpoint that ever calls Knowledge) are built as a distinct, later sub-phase — every other Leitner endpoint (deck/card/face/schedule CRUD, <code>POST /reviews</code>, <code>GET .../due</code>) works standalone first, with no Knowledge dependency at all.</p>
+        <p><strong>Core tables carry almost no Knowledge columns.</strong> <code>leitner_card_face</code> stores <code>property_path</code> and <code>content</code> (<code>jsonb</code>) directly — the authoritative value shown during review, not a cache of something else — and nothing about its shape (scalar vs. the <code>{ id, alt_text, metadata }</code> media shape) is stored or branched on; Learning just persists whatever <code>content</code> it's given. A manually-authored deck writes <code>content</code> directly and never touches anything below.</p>
+        <p>The one remaining Knowledge linkage is <code>leitner_card.node_id</code> — a plain nullable column, no FK, no parallel source table. A card with <code>node_id IS NULL</code> is manually-authored; one with a value is Knowledge-linked. Whether/how a linked card's content can drift from Knowledge, and how re-resolving or "pinning" it would work, isn't designed yet — deliberately deferred, along with a deck-level equivalent of "what generated this deck."</p>
+        <p class="small"><code>POST /leitnerDecks/generate</code> (the only Learning endpoint that would ever call Knowledge) is a distinct, later sub-phase — every other Leitner endpoint (deck/card/face/schedule CRUD, <code>POST /reviews</code>, <code>GET .../due</code>) works standalone first, with no Knowledge dependency at all.</p>
       </div>
       <table class="data seq-table">
         <thead><tr><th>Box</th><th>Interval</th><th>Variance</th></tr></thead>
@@ -693,15 +615,15 @@ sequenceDiagram
 
     FE->>AS: GET due cards
     AS->>L: GET /leitnerDecks/{id}/due
-    L-->>AS: cards + faces (content, + source path if any)
-    AS->>AS: filter to faces with a knowledge source
-    AS->>K: POST /nodes/resolve (batched, sourced faces only)
+    L-->>AS: cards + faces (content, node_id if linked)
+    AS->>AS: filter to cards with a node_id
+    AS->>K: POST /nodes/resolve (batched, linked cards only)
     K-->>AS: resolved values
     AS->>AS: diff vs content
     AS-->>FE: cards + values + drift flags
             </pre>
           </div>
-          <p class="caption">Due cards — two HTTP calls total, regardless of how many cards are due. Pure-literal cards (no <code>leitner_card_face_knowledge_source</code> row) are never sent to Knowledge at all.</p>
+          <p class="caption">Due cards — two HTTP calls total, regardless of how many cards are due. Manually-authored cards (<code>node_id IS NULL</code>) are never sent to Knowledge at all.</p>
         </div>
         <div>
           <div class="panel">
@@ -714,13 +636,13 @@ sequenceDiagram
     U->>L: POST /leitnerDecks/generate
     L->>K: POST /nodes/resolve/type (nodeTypeName + paths)
     K-->>L: resolved values, per matching node
-    L->>L: create deck + deck source (resolutionQuery)
-    L->>L: create cards + card sources (knowledgeNodeId)
-    L->>L: create faces (content, seeded) + face sources (propertyPath)
+    L->>L: create deck
+    L->>L: create cards (node_id = matching node)
+    L->>L: create faces (property_path + content, seeded)
     L-->>U: deck created
             </pre>
           </div>
-          <p class="caption">Deck generation — the one narrow, explicit Learning→Knowledge exception, and the only Learning endpoint that writes to the three knowledge-source tables. One call to Knowledge, not two — <code class="mono">POST /nodes/resolve/type</code> finds every matching node and resolves the seed paths against each in a single round trip.</p>
+          <p class="caption">Deck generation — the one narrow, explicit Learning→Knowledge exception. <code class="mono">POST /leitnerDecks/generate</code> itself isn't built yet, and how a deck would remember what generated it isn't designed. One call to Knowledge, not two — <code class="mono">POST /nodes/resolve/type</code> finds every matching node and resolves the seed paths against each in a single round trip.</p>
         </div>
       </div>
     </section>
@@ -743,7 +665,7 @@ sequenceDiagram
           <tr><td class="order">3</td><td><span class="tag knowledge">Knowledge</span> path resolution API</td><td>Needs #1/#2 to resolve against.</td></tr>
           <tr><td class="order">4</td><td>Seed real content</td><td>Validates #1–#3; gives Learning something real.</td></tr>
           <tr><td class="order">5</td><td><span class="tag learning">Learning</span> core Leitner model (deck/card/face/schedule, review, due)</td><td>No Knowledge dependency at all — could even build alongside #1–#4.</td></tr>
-          <tr><td class="order">6</td><td><span class="tag learning">Learning</span> knowledge-source tables + <code class="mono">generate</code></td><td>Built last, on top of #5 — needs #4's real vocabulary to be worth using.</td></tr>
+          <tr><td class="order">6</td><td><span class="tag learning">Learning</span> Knowledge-linked card creation + <code class="mono">generate</code></td><td>Built last, on top of #5 — needs #4's real vocabulary to be worth using.</td></tr>
           <tr><td class="order">7</td><td><span class="tag appserver">App Server</span></td><td>The integration layer — structurally last.</td></tr>
           <tr><td class="order">8</td><td>React web frontend</td><td>Builds against App Server's read paths.</td></tr>
           <tr><td class="order">9</td><td>React Native</td><td>Deferred until the web contract is validated.</td></tr>
