@@ -4,7 +4,7 @@
 
 This repo holds cross-cutting platform documentation that doesn't belong to any single service repo — architecture references, schema diagrams, API-interaction diagrams, design decisions that span `MnemoToad.Knowledge`, `MnemoToad.Learning`, and future services (a Gateway, frontends). It is documentation-only for now: no application code, no build, no tests.
 
-Sibling repos: [traviter/MnemoToad.Knowledge](https://github.com/traviter/MnemoToad.Knowledge) (the graph/"dictionary of things"), [traviter/MnemoToad.Learning](https://github.com/traviter/MnemoToad.Learning) (Leitner-box spaced repetition). Each service still owns its own conventions in its own `CLAUDE.md` — this repo doesn't restate those, only the decisions that cross service boundaries.
+Sibling repos: [traviter/MnemoToad.Knowledge](https://github.com/traviter/MnemoToad.Knowledge) (the graph/"dictionary of things"), [traviter/MnemoToad.Learning](https://github.com/traviter/MnemoToad.Learning) (Leitner-box spaced repetition), [traviter/MnemoToad.Gateway](https://github.com/traviter/MnemoToad.Gateway) (Karate-only proof-of-concept for the future composition layer — no API yet). Each service still owns its own conventions in its own `CLAUDE.md` — this repo doesn't restate those, only the decisions that cross service boundaries.
 
 ## Contents
 

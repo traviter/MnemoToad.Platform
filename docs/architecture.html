@@ -18,9 +18,9 @@
     --learning: #1F5D68;
     --learning-ink: #17454D;
     --learning-soft: #DCEBEC;
-    --appserver: #63508B;
-    --appserver-ink: #4A3B69;
-    --appserver-soft: #E7E1F0;
+    --gateway: #63508B;
+    --gateway-ink: #4A3B69;
+    --gateway-soft: #E7E1F0;
     --toad: #3C6534;
     --code-bg: #EFEDE2;
     --shadow: 0 1px 2px rgba(27,35,29,0.06), 0 4px 16px rgba(27,35,29,0.05);
@@ -39,9 +39,9 @@
       --learning: #5FB3C2;
       --learning-ink: #8ED0DB;
       --learning-soft: #15282B;
-      --appserver: #A793D1;
-      --appserver-ink: #C3B4E5;
-      --appserver-soft: #241E33;
+      --gateway: #A793D1;
+      --gateway-ink: #C3B4E5;
+      --gateway-soft: #241E33;
       --toad: #7AB86B;
       --code-bg: #1E2419;
       --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
@@ -52,7 +52,7 @@
     --line: #2E362A; --line-strong: #3E4736;
     --knowledge: #D9A44A; --knowledge-ink: #E7C079; --knowledge-soft: #2E2415;
     --learning: #5FB3C2; --learning-ink: #8ED0DB; --learning-soft: #15282B;
-    --appserver: #A793D1; --appserver-ink: #C3B4E5; --appserver-soft: #241E33;
+    --gateway: #A793D1; --gateway-ink: #C3B4E5; --gateway-soft: #241E33;
     --toad: #7AB86B; --code-bg: #1E2419;
     --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
   }
@@ -61,7 +61,7 @@
     --line: #DEDCCF; --line-strong: #C7C4B2;
     --knowledge: #96691C; --knowledge-ink: #6E4D14; --knowledge-soft: #F1E4C8;
     --learning: #1F5D68; --learning-ink: #17454D; --learning-soft: #DCEBEC;
-    --appserver: #63508B; --appserver-ink: #4A3B69; --appserver-soft: #E7E1F0;
+    --gateway: #63508B; --gateway-ink: #4A3B69; --gateway-soft: #E7E1F0;
     --toad: #3C6534; --code-bg: #EFEDE2;
     --shadow: 0 1px 2px rgba(27,35,29,0.06), 0 4px 16px rgba(27,35,29,0.05);
   }
@@ -247,7 +247,7 @@
   }
   .tag.knowledge { background: var(--knowledge-soft); color: var(--knowledge-ink); }
   .tag.learning { background: var(--learning-soft); color: var(--learning-ink); }
-  .tag.appserver { background: var(--appserver-soft); color: var(--appserver-ink); }
+  .tag.gateway { background: var(--gateway-soft); color: var(--gateway-ink); }
 
   .service-block {
     border-left: 3px solid var(--line-strong);
@@ -256,7 +256,7 @@
   }
   .service-block.knowledge { border-left-color: var(--knowledge); }
   .service-block.learning { border-left-color: var(--learning); }
-  .service-block.appserver { border-left-color: var(--appserver); }
+  .service-block.gateway { border-left-color: var(--gateway); }
   .service-block h3 { font-size: 1.02rem; margin-bottom: 8px; }
   .service-block p { margin: 0 0 8px; font-size: 0.92rem; }
   .service-block p.small { font-size: 0.85rem; color: var(--ink-muted); }
@@ -333,7 +333,7 @@
     <a class="nav-link" href="#erd-knowledge"><span class="nav-dot" style="background:var(--knowledge)"></span><span class="nav-num">—</span> Knowledge schema</a>
     <a class="nav-link" href="#erd-learning"><span class="nav-dot" style="background:var(--learning)"></span><span class="nav-num">—</span> Learning schema</a>
     <a class="nav-link" href="#learning"><span class="nav-dot" style="background:var(--learning)"></span><span class="nav-num">04</span> Leitner model</a>
-    <a class="nav-link" href="#appserver"><span class="nav-dot" style="background:var(--appserver)"></span><span class="nav-num">05</span> Gateway</a>
+    <a class="nav-link" href="#gateway"><span class="nav-dot" style="background:var(--gateway)"></span><span class="nav-num">05</span> Gateway</a>
     <a class="nav-link" href="#interactions"><span class="nav-num">—</span> API interactions</a>
     <a class="nav-link" href="#frontend"><span class="nav-num">06</span> Frontend</a>
     <a class="nav-link" href="#sequencing"><span class="nav-num">07</span> Sequencing</a>
@@ -346,7 +346,7 @@
       <div class="meta">
         <span><span class="tag knowledge">Knowledge</span></span>
         <span><span class="tag learning">Learning</span></span>
-        <span><span class="tag appserver">Gateway</span></span>
+        <span><span class="tag gateway">Gateway</span></span>
         <span>Generated from the working roadmap — regenerate when that plan changes materially.</span>
       </div>
     </header>
@@ -394,8 +394,8 @@
           <h3>Learning API</h3>
           <p>Live Swagger UI on the deployed Azure app.</p>
         </a>
-        <div class="decision-card api-card appserver disabled">
-          <span class="tag appserver">Gateway</span>
+        <div class="decision-card api-card gateway disabled">
+          <span class="tag gateway">Gateway</span>
           <h3>Gateway</h3>
           <p>No API yet — a Karate-only proof-of-concept lives at <code class="mono">MnemoToad.Gateway</code>.</p>
         </div>
@@ -581,12 +581,14 @@ erDiagram
       <p class="caption">Seed values — illustrative placeholders to tune later, not a considered spaced-repetition curve.</p>
     </section>
 
-    <section id="appserver">
-      <div class="eyebrow"><span class="tag appserver">Gateway</span><span class="num">§5</span></div>
+    <section id="gateway">
+      <div class="eyebrow"><span class="tag gateway">Gateway</span><span class="num">§5</span></div>
       <h2>Composition layer</h2>
-      <div class="service-block appserver">
+      <div class="service-block gateway">
         <p>Knowledge owns content, Learning owns scheduling, and Gateway is the only layer that knows about both — a BFF with no database of its own, sitting between the frontend and the two service APIs. Renamed from "App Server" once a real repo (<code class="mono">MnemoToad.Gateway</code>) needed the name — currently just a Karate proof-of-concept validating the resolve → create-deck composition, no API contract decided yet.</p>
       </div>
+      <p class="caption">The "who calls whom" diagram below is the target shape once a real Gateway API exists. Today's Karate POC calls Knowledge and Learning directly, with no Gateway API sitting between them yet — proving the composition is the point, before committing to that API's contract.</p>
+      <p class="caption">The POC's two base URLs (Knowledge, Learning) come from this repo's GitHub Actions Variables in CI, overridable per dispatch run, and from a gitignored local override file for local dev — environment variables are the base, the local file's keys win where it sets them (built via object spread), and there is deliberately no hardcoded URL anywhere in the Karate config: a misconfigured environment hard-fails rather than silently running against the wrong target. See <code class="mono">MnemoToad.Gateway</code>'s own README/CLAUDE.md for the exact mechanism — this is a deliberate departure from Knowledge's and Learning's own Karate suites, which still hardcode a <code class="mono">dev</code>/<code class="mono">azure</code> switch, and may get retrofit onto those later.</p>
     </section>
 
     <section id="interactions">
@@ -666,7 +668,7 @@ sequenceDiagram
           <tr><td class="order">4</td><td>Seed real content</td><td>Validates #1–#3; gives Learning something real.</td></tr>
           <tr><td class="order">5</td><td><span class="tag learning">Learning</span> core Leitner model (deck/card/face/schedule, review, due)</td><td>No Knowledge dependency at all — could even build alongside #1–#4.</td></tr>
           <tr><td class="order">6</td><td><span class="tag learning">Learning</span> Knowledge-linked card creation + <code class="mono">generate</code></td><td>Built last, on top of #5 — needs #4's real vocabulary to be worth using.</td></tr>
-          <tr><td class="order">7</td><td><span class="tag appserver">Gateway</span></td><td>The integration layer — structurally last. A Karate-only POC jumped ahead of this ordering, needing only #3 and #5, not #6.</td></tr>
+          <tr><td class="order">7</td><td><span class="tag gateway">Gateway</span></td><td>The integration layer — structurally last. A Karate-only POC jumped ahead of this ordering, needing only #3 and #5, not #6.</td></tr>
           <tr><td class="order">8</td><td>React web frontend</td><td>Builds against Gateway's read paths.</td></tr>
           <tr><td class="order">9</td><td>React Native</td><td>Deferred until the web contract is validated.</td></tr>
         </tbody>
@@ -696,9 +698,9 @@ sequenceDiagram
         secondaryColor: v("--learning-soft"),
         secondaryTextColor: v("--ink"),
         secondaryBorderColor: v("--learning"),
-        tertiaryColor: v("--appserver-soft"),
+        tertiaryColor: v("--gateway-soft"),
         tertiaryTextColor: v("--ink"),
-        tertiaryBorderColor: v("--appserver"),
+        tertiaryBorderColor: v("--gateway"),
         textColor: v("--ink"),
         fontFamily: "ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, monospace",
         fontSize: "14px"
